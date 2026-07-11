@@ -160,7 +160,6 @@ TrackBack/
 
 ---
 
-## 🎙️ Interview talking points
 
 - **Vector search in a relational DB:** embeddings stored in a `vector(512)`
   column; cosine ranking pushed into Postgres (`<=>`) with an HNSW index instead

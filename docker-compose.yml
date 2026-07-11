@@ -1,0 +1,25 @@
+# Local Postgres with the pgvector extension pre-installed.
+# Lets you run TrackBack fully locally (no Neon account needed):
+#   docker compose up -d
+#   # then in backend/.env:  DATABASE_URL="postgresql://trackback:trackback@localhost:5432/trackback"
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: trackback-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: trackback
+      POSTGRES_PASSWORD: trackback
+      POSTGRES_DB: trackback
+    ports:
+      - "5432:5432"
+    volumes:
+      - trackback_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trackback -d trackback"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  trackback_pgdata:

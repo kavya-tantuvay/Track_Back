@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Builds
+dist/
+build/
+frontend/dist/
+backend/dist/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Local image storage (Cloudinary fallback) + model cache
+backend/uploads/*
+!backend/uploads/.gitkeep
+.cache/
+.models/
+
+# Prisma
+backend/prisma/*.db
+
+# Logs / editors / OS
+*.log
+npm-debug.log*
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# tsc build artifacts
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts

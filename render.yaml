@@ -1,0 +1,36 @@
+# Render Blueprint — one-click backend + Postgres (with pgvector).
+# In the Render dashboard: New → Blueprint → connect this repo. Render reads this
+# file, provisions the database, wires DATABASE_URL, and deploys the API.
+#
+# Notes:
+#  - Free instances have 512 MB RAM, so EMBEDDER=fallback is set (real CLIP needs
+#    ~1 GB+; bump the plan and remove that env var to enable semantic matching).
+#  - After the frontend is deployed, set CORS_ORIGIN to its URL and redeploy.
+#  - For persistent images, add CLOUDINARY_URL in the dashboard (Environment tab).
+services:
+  - type: web
+    name: trackback-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci && npm run build && npm run db:deploy
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: trackback-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: EMBEDDER
+        value: fallback
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: NODE_ENV
+        value: production
+
+databases:
+  - name: trackback-db
+    plan: free
+    postgresMajorVersion: "16"

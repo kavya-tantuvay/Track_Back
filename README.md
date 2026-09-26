@@ -1,4 +1,4 @@
-# 🧭 TrackBack — AI-powered Lost & Found
+# 🧭 TrackBack : AI-powered Lost & Found
 
 TrackBack is a full-stack, **AI-powered Lost & Found platform**. Users report lost
 items and post found items (with photos, descriptions, location, and date). When

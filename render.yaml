@@ -13,7 +13,9 @@ services:
     runtime: node
     plan: free
     rootDir: backend
-    buildCommand: npm ci && npm run build && npm run db:deploy
+    # db:deploy runs `prisma generate` before `prisma migrate deploy`, so it has
+    # to come first: the TypeScript build depends on the generated client.
+    buildCommand: npm ci && npm run db:deploy && npm run build
     startCommand: npm start
     healthCheckPath: /api/ready
     envVars:

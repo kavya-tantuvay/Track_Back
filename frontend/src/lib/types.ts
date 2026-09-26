@@ -37,7 +37,10 @@ export interface MatchResult {
   status: ItemStatus;
   createdAt: string;
   ownerUsername: string;
+  /** Similarity plus the same-category bonus — this is what ranks the list. */
   score: number;
+  /** Raw cosine similarity in 0..1 — what the confidence % shows. */
+  similarity: number;
 }
 
 export interface ListResponse {

@@ -1,7 +1,18 @@
 import type { Item, ListResponse, MatchResult, Meta, User } from "./types";
 
-const BASE = import.meta.env.VITE_API_BASE ?? "";
+// Empty in dev: Vite proxies /api and /uploads to the backend, so relative URLs
+// work same-origin. In a production build it must point at the deployed API.
+const BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/$/, "");
 const TOKEN_KEY = "trackback_token";
+
+if (import.meta.env.PROD && !BASE) {
+  // Without this the bundle would request /api/* from the static host, which
+  // returns the SPA's index.html and fails with a confusing JSON parse error.
+  console.error(
+    "[TrackBack] VITE_API_BASE was not set at build time — API requests will " +
+      "hit the static host instead of the backend. Set it and rebuild.",
+  );
+}
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);

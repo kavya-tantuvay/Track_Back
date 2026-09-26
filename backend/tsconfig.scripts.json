@@ -1,0 +1,12 @@
+{
+  // Type-checking-only project for scripts/ (the smoke test). Kept separate from
+  // tsconfig.json so `npm run build` still emits just src/ into dist/, while CI
+  // still catches type errors in the test harness itself.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "scripts/**/*.ts"]
+}

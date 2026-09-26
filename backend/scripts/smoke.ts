@@ -49,9 +49,19 @@ async function main() {
   });
 
   try {
-    console.log("1) Health");
+    console.log("1) Health + readiness");
     const health = await api("/api/health");
     check(health.status === 200 && health.body.ok === true, "GET /api/health ok");
+    const ready = await api("/api/ready");
+    check(ready.status === 200 && ready.body.db === "up", "GET /api/ready reports the DB up");
+
+    const [{ present }] = await prisma.$queryRaw<{ present: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1 FROM pg_indexes
+        WHERE tablename = 'Item' AND indexname = 'item_embedding_hnsw'
+      ) AS present
+    `;
+    check(present, "HNSW index exists (migrations applied)");
 
     console.log("\n2) Auth");
     const reg = await api("/api/auth/register", {
@@ -119,7 +129,8 @@ async function main() {
     const { status, body } = await api(`/api/items/${lostId}/matches`);
     check(status === 200 && Array.isArray(body.matches), "GET /items/:id/matches → 200");
 
-    const matches: Array<{ id: string; title: string; score: number }> = body.matches;
+    const matches: Array<{ id: string; title: string; score: number; similarity: number }> =
+      body.matches;
     console.log(
       "     ranked matches:",
       matches.map((m) => `${m.title} (${m.score.toFixed(3)})`).join(" | ") || "(none)",
@@ -130,6 +141,31 @@ async function main() {
     const walletScore = matches.find((m) => m.id === foundId)?.score ?? -1;
     const phoneScore = matches.find((m) => m.id === phone.body.item.id)?.score ?? -1;
     check(walletScore > phoneScore, "wallet match scores higher than the unrelated phone");
+    check(
+      matches.every((m) => typeof m.similarity === "number" && m.similarity <= 1.0001),
+      "every match exposes a raw cosine similarity in 0..1",
+    );
+
+    console.log("\n5) Ownership rules");
+    const otherReg = await api("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({
+        email: "intruder@trackback.app",
+        username: "intruder",
+        password: "password123",
+      }),
+    });
+    const otherToken = otherReg.body.token as string;
+    const forbidden = await api(`/api/items/${lostId}`, {
+      method: "PATCH",
+      token: otherToken,
+      body: JSON.stringify({ status: "resolved" }),
+    });
+    check(forbidden.status === 403, "a non-owner cannot resolve someone else's item");
+    const anon = await api(`/api/items/${lostId}`, {
+      method: "DELETE",
+    });
+    check(anon.status === 401, "an anonymous request cannot delete an item");
 
     console.log(
       failures === 0

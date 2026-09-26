@@ -15,7 +15,7 @@ services:
     rootDir: backend
     buildCommand: npm ci && npm run build && npm run db:deploy
     startCommand: npm start
-    healthCheckPath: /api/health
+    healthCheckPath: /api/ready
     envVars:
       - key: DATABASE_URL
         fromDatabase:

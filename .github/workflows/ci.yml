@@ -47,8 +47,8 @@ jobs:
 
       - run: npm ci
       - run: npx prisma generate
-      - name: Push schema (creates tables + pgvector extension)
-        run: npx prisma db push
+      - name: Apply migrations (tables + pgvector extension + HNSW index)
+        run: npx prisma migrate deploy
       - name: Typecheck
         run: npm run typecheck
       - name: Build

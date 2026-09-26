@@ -16,7 +16,7 @@ export default function MatchList({ matches }: { matches: MatchResult[] }) {
   return (
     <ul className="match-list">
       {matches.map((m) => {
-        const { pct, label, tone } = matchConfidence(m.score);
+        const { pct, label, tone } = matchConfidence(m.similarity ?? m.score);
         const src = imageSrc(m.imageUrl);
         return (
           <li key={m.id} className="match-item">

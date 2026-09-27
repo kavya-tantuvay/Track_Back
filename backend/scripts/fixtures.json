@@ -1,0 +1,23 @@
+{
+  "_comment": "Test images for `npm run verify:clip`. Downloaded on demand into backend/.fixtures/ (gitignored) rather than committed, so the repo carries no third-party media. All are from Wikimedia Commons; see `credit` for each file's page.",
+  "fixtures": [
+    {
+      "label": "wallet",
+      "file": "wallet.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Leather_Wallet_with_a_Strap_Closure_-_DPLA_-_01e1cfae03bc0ce9106a5a7d5e4a9981_%28page_1%29.jpg/960px-Leather_Wallet_with_a_Strap_Closure_-_DPLA_-_01e1cfae03bc0ce9106a5a7d5e4a9981_%28page_1%29.jpg",
+      "credit": "https://commons.wikimedia.org/wiki/File:Leather_Wallet_with_a_Strap_Closure_-_DPLA_-_01e1cfae03bc0ce9106a5a7d5e4a9981_(page_1).jpg"
+    },
+    {
+      "label": "keys",
+      "file": "keys.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/Keys-unlock_%2824242899961%29.jpg/960px-Keys-unlock_%2824242899961%29.jpg",
+      "credit": "https://commons.wikimedia.org/wiki/File:Keys-unlock_(24242899961).jpg"
+    },
+    {
+      "label": "phone",
+      "file": "phone.png",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/Nokia_6630.png/960px-Nokia_6630.png",
+      "credit": "https://commons.wikimedia.org/wiki/File:Nokia_6630.png"
+    }
+  ]
+}

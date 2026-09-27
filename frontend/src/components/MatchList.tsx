@@ -15,8 +15,8 @@ export default function MatchList({ matches }: { matches: MatchResult[] }) {
 
   return (
     <ul className="match-list">
-      {matches.map((m) => {
-        const { pct, label, tone } = matchConfidence(m.similarity ?? m.score);
+      {matches.map((m, rank) => {
+        const { pct, label, tone } = matchConfidence(m.confidence ?? null);
         const src = imageSrc(m.imageUrl);
         return (
           <li key={m.id} className="match-item">
@@ -36,10 +36,15 @@ export default function MatchList({ matches }: { matches: MatchResult[] }) {
                 </div>
               </div>
               <div className={`match-score score-${tone}`}>
-                <div className="score-pct">{pct}%</div>
+                <div className="score-pct">{pct === null ? `#${rank + 1}` : `${pct}%`}</div>
                 <div className="score-label">{label}</div>
                 <div className="score-bar">
-                  <span style={{ width: `${pct}%` }} />
+                  <span style={{ width: `${pct ?? 0}%` }} />
+                </div>
+                {/* Raw cosine kept visible: the calibrated % is a ranking aid,
+                    this is the underlying measurement. */}
+                <div className="score-raw" title="Raw CLIP cosine similarity">
+                  cos {m.similarity.toFixed(3)}
                 </div>
               </div>
             </Link>

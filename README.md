@@ -169,11 +169,46 @@ failed deploys.
    distances every row in the table. Keeping the ANN step pure preserves the
    index; the business logic rides on the shortlist.
 
-The API returns both numbers: `similarity` (raw cosine, 0..1 — what the UI's
-confidence % shows) and `score` (similarity + category bonus — what ranks the list).
+4. **Confidence is calibrated per query, not read off the cosine.** See below.
 
 See `backend/src/lib/embedder.ts`, `backend/src/lib/vector.ts`, and
 `backend/src/services/matching.ts`.
+
+### Why the confidence % isn't the raw cosine
+
+Raw CLIP cosine similarities are *not* calibrated, and — more importantly — they
+are **not comparable across modality pairs**. Measured on this project with real
+CLIP (`npm run verify:clip`, blended item embeddings):
+
+| Pair | Cosine | Verdict |
+| ---- | ------ | ------- |
+| lost wallet **text** ↔ found wallet **photo** | `0.635` | true match |
+| lost wallet **text** ↔ found phone **photo**  | `0.494` | non-match |
+| lost phone **text** ↔ found phone **text**    | `0.959` | true match |
+| lost phone **text** ↔ found wallet **text**   | `0.863` | **non-match** |
+
+Two forces are at work: CLIP's text tower is **anisotropic** (its embeddings
+occupy a narrow cone, so *any* two captions score ~0.85+), and there's the
+well-documented **modality gap** between the image and text towers, which pushes
+genuine cross-modal pairs down to ~0.6.
+
+So a fixed threshold is meaningless — reading cosine as a percentage would have
+labelled an unrelated phone/wallet text pair **"86% · Strong match"** while
+calling a genuine photo-to-description match merely "Likely". Ranking within a
+single query is reliable; the absolute number is not.
+
+The fix: the ANN stage already retrieves `topK × 6` candidates, which is a free
+background sample drawn from *this query's* probe vector and modality mix. Each
+hit is expressed as a **z-score against that pool** (`AVG`/`STDDEV_SAMP` window
+functions over the candidate CTE, so it costs no extra round trip) and squashed
+through a logistic into a 0..1 confidence. When the pool is too small to have a
+spread (fewer than 4 candidates), the API returns `confidence: null` and the UI
+falls back to showing rank — it doesn't invent a number.
+
+The response therefore carries all four values: `similarity` (raw cosine, shown
+in the UI as a small `cos 0.635` readout for transparency), `score` (similarity +
+category bonus, which orders the list), `zScore`, and `confidence` (what the
+percentage and label render from).
 
 ---
 
@@ -210,7 +245,9 @@ TrackBack/
 │   ├── prisma/
 │   │   ├── schema.prisma      # User, Item, vector(512) embedding
 │   │   └── migrations/        # init + HNSW index (raw SQL)
-│   ├── scripts/smoke.ts       # end-to-end test against real Postgres
+│   ├── scripts/
+│   │   ├── smoke.ts           # end-to-end test against real Postgres
+│   │   └── verify-clip.ts     # cross-modal retrieval check on real CLIP
 │   └── src/
 │       ├── index.ts app.ts config.ts bootstrap.ts prisma.ts seed.ts
 │       ├── lib/     embedder · vector · storage · jwt · validation · errors
@@ -249,6 +286,33 @@ and build for both packages.
 cd backend && npm run smoke
 ```
 
+### Verifying CLIP itself
+
+The smoke test covers the plumbing but says nothing about whether the *model*
+works. `backend/scripts/verify-clip.ts` covers the other half: it loads the real
+CLIP weights and asserts the property the product is built on — that a text
+description retrieves the right **photo** and a photo retrieves the right
+**description**, across the modality gap, using captions deliberately worded to
+share no keywords with the images.
+
+```bash
+cd backend && npm run verify:clip
+```
+
+It downloads three Wikimedia Commons test images on first run (listed with
+credits in `scripts/fixtures.json`; not committed) and prints the full similarity
+matrix plus the calibration evidence in the table above. Current result: **6/6
+retrieval checks pass in both directions.**
+
+Not in CI — it needs ~350 MB of model weights, which is the wrong thing to pull
+on every push. It's a local check you run when touching the embedder.
+
+**Known limitation it surfaced:** base CLIP is zero-shot, so visually atypical
+objects can be mis-ranked image→text — a slim *metal* card-holder wallet scored
+closer to "small handheld device with a screen" than to the wallet caption, by
+0.012. This is why the product surfaces a ranked shortlist for a human to confirm
+rather than auto-claiming a single match, and why the same-category bonus exists.
+
 ---
 
 ## 🎯 Engineering highlights
@@ -258,6 +322,9 @@ cd backend && npm run smoke
   of scoring in app code — scales beyond a naive O(n) scan.
 - **Retrieve-then-re-rank:** business logic (the category bonus) is kept *out* of
   the ANN `ORDER BY` so the index stays usable, then applied to the shortlist.
+- **Calibrated confidence:** raw CLIP cosines aren't comparable across modality
+  pairs, so the displayed confidence is a z-score against the candidate pool the
+  ANN stage already fetched — measured, not assumed (see above).
 - **CLIP without Python:** ran the model in Node via ONNX (`@xenova/transformers`)
   to keep the stack all-TypeScript, with a deterministic fallback so the product
   never hard-fails on a cold/offline start.

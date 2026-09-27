@@ -129,8 +129,14 @@ async function main() {
     const { status, body } = await api(`/api/items/${lostId}/matches`);
     check(status === 200 && Array.isArray(body.matches), "GET /items/:id/matches → 200");
 
-    const matches: Array<{ id: string; title: string; score: number; similarity: number }> =
-      body.matches;
+    const matches: Array<{
+      id: string;
+      title: string;
+      score: number;
+      similarity: number;
+      zScore: number | null;
+      confidence: number | null;
+    }> = body.matches;
     console.log(
       "     ranked matches:",
       matches.map((m) => `${m.title} (${m.score.toFixed(3)})`).join(" | ") || "(none)",
@@ -144,6 +150,19 @@ async function main() {
     check(
       matches.every((m) => typeof m.similarity === "number" && m.similarity <= 1.0001),
       "every match exposes a raw cosine similarity in 0..1",
+    );
+    check(
+      matches.every(
+        (m) =>
+          m.confidence === null || (typeof m.confidence === "number" && m.confidence >= 0 && m.confidence <= 1),
+      ),
+      "calibrated confidence is null or within 0..1",
+    );
+    // With only a couple of candidates there is no spread to calibrate against,
+    // so the API must say "unknown" rather than invent a percentage.
+    check(
+      matches.every((m) => (m.zScore === null) === (m.confidence === null)),
+      "confidence is present exactly when a z-score could be computed",
     );
 
     console.log("\n5) Ownership rules");

@@ -40,11 +40,47 @@ export interface MatchResult {
   score: number;
   /** Raw cosine similarity, before the category bonus. */
   similarity: number;
+  /**
+   * How far this candidate's similarity sits above the mean of the retrieved
+   * candidate pool, in standard deviations. `null` when the pool is too small
+   * to estimate a spread. See calibrateConfidence() for why this exists.
+   */
+  zScore: number | null;
+  /** Calibrated 0..1 confidence for display. `null` mirrors a null zScore. */
+  confidence: number | null;
 }
 
-interface RawMatchRow extends Omit<MatchResult, "score" | "similarity"> {
+interface RawMatchRow
+  extends Omit<MatchResult, "score" | "similarity" | "zScore" | "confidence"> {
   score: number | string;
   similarity: number | string;
+  zScore: number | string | null;
+}
+
+/**
+ * Turn a z-score into a 0..1 confidence for the UI.
+ *
+ * Why not just show the raw cosine as a percentage? Because CLIP cosines are
+ * not calibrated and are not comparable across modality pairs:
+ *
+ *   - CLIP's text encoder is anisotropic — its embeddings occupy a narrow cone,
+ *     so *any* two captions score ~0.85+. Measured on this project: an
+ *     unrelated "lost phone" / "found wallet" text pair scores 0.863, which the
+ *     old UI rendered as "86% — Strong match".
+ *   - There is a well-documented modality gap between CLIP's image and text
+ *     towers, so a genuine text-to-photo match scores far lower — 0.607 for a
+ *     true wallet match here, which rendered as a mere "Likely match".
+ *
+ * So an absolute threshold is meaningless: the same number means opposite
+ * things depending on whether the two items had photos. What *is* meaningful is
+ * how a candidate compares to the other candidates for the same query, since
+ * they all share one probe vector and one modality mix. The ANN stage already
+ * retrieves topK x multiplier rows, so that background sample is free — we
+ * express each hit as a z-score against it and squash it with a logistic.
+ */
+export function calibrateConfidence(z: number | null): number | null {
+  if (z === null || !Number.isFinite(z)) return null;
+  return 1 / (1 + Math.exp(-1.6 * (z - 1.1)));
 }
 
 interface QueryItemRow {
@@ -112,16 +148,29 @@ export async function findMatchesForItem(
       c."createdAt",
       u.username AS "ownerUsername",
       c.similarity,
-      (c.similarity + CASE WHEN c.category = ${queryItem.category} THEN ${bonus} ELSE 0 END) AS score
+      (c.similarity + CASE WHEN c.category = ${queryItem.category} THEN ${bonus} ELSE 0 END) AS score,
+      -- Calibration sample: the window covers the whole candidate pool, which
+      -- is evaluated before the ORDER BY / LIMIT below, so every returned row
+      -- is scored against all candidates rather than just its own top-K peers.
+      CASE
+        WHEN COUNT(*) OVER () >= 4 AND COALESCE(STDDEV_SAMP(c.similarity) OVER (), 0) > 1e-9
+        THEN (c.similarity - AVG(c.similarity) OVER ()) / STDDEV_SAMP(c.similarity) OVER ()
+        ELSE NULL
+      END AS "zScore"
     FROM candidates c
     JOIN "User" u ON u.id = c."ownerId"
     ORDER BY score DESC
     LIMIT ${topK}
   `);
 
-  return rows.map((r) => ({
-    ...r,
-    score: Number(r.score),
-    similarity: Number(r.similarity),
-  }));
+  return rows.map((r) => {
+    const zScore = r.zScore === null ? null : Number(r.zScore);
+    return {
+      ...r,
+      score: Number(r.score),
+      similarity: Number(r.similarity),
+      zScore,
+      confidence: calibrateConfidence(zScore),
+    };
+  });
 }

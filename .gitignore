@@ -20,6 +20,10 @@ backend/uploads/*
 .cache/
 .models/
 
+# Test images downloaded on demand by `npm run verify:clip` (see
+# backend/scripts/fixtures.json); not committed, so no third-party media here.
+backend/.fixtures/
+
 # Prisma
 backend/prisma/*.db
 

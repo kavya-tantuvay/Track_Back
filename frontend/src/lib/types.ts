@@ -39,8 +39,12 @@ export interface MatchResult {
   ownerUsername: string;
   /** Similarity plus the same-category bonus — this is what ranks the list. */
   score: number;
-  /** Raw cosine similarity in 0..1 — what the confidence % shows. */
+  /** Raw cosine similarity in 0..1 — shown as a transparency readout. */
   similarity: number;
+  /** Standard deviations above the candidate pool's mean similarity. */
+  zScore: number | null;
+  /** Calibrated 0..1 confidence — what the confidence % shows. */
+  confidence: number | null;
 }
 
 export interface ListResponse {
